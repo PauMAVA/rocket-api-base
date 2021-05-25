@@ -1,0 +1,12 @@
+{
+    "result": "ok",
+    "error_code": 0,
+    "error_message": "",
+    "content": [
+        {
+            "age": 19,
+            "married": false,
+            "name": "Pau"
+        }
+     ]
+}

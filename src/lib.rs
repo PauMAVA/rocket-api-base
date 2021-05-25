@@ -18,7 +18,7 @@ where
 }
 
 #[derive(Serialize)]
-struct NoContent {}
+pub struct NoContent {}
 
 pub enum BaseContent<T> {
     Some(T),
@@ -73,7 +73,7 @@ where
                 Err(JWTError::MalformedToken)
             }
         }
-        Err(_) => Err(JWTError::MalformedEncoding)
+        Err(_) => Err(JWTError::MalformedEncoding),
     }
 }
 
