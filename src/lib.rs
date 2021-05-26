@@ -1,3 +1,4 @@
+use glob::Pattern;
 use hmac_sha256::HMAC;
 use rand::distributions::Distribution;
 use rand::seq::SliceRandom;
@@ -8,6 +9,7 @@ use rocket::{Data, Request};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{from_slice, json};
+use std::str::FromStr;
 
 #[derive(Serialize)]
 pub struct BaseResponse<T>
@@ -183,6 +185,8 @@ where
     secret: String,
     error_handler: Box<ErrorHandlerCallback>,
     further_checks: Option<Box<FurtherChecksCallback<T>>>,
+    exclude: Vec<String>,
+    include: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -222,6 +226,34 @@ where
         error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
         further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
     ) -> Self {
+        Self::__new_private(secret, error_handler, further_checks, vec![], vec![])
+    }
+
+    pub fn new_with_excludes(
+        secret: String,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
+        excludes: Vec<String>,
+    ) -> Self {
+        Self::__new_private(secret, error_handler, further_checks, vec![], excludes)
+    }
+
+    pub fn new_with_includes(
+        secret: String,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
+        includes: Vec<String>,
+    ) -> Self {
+        Self::__new_private(secret, error_handler, further_checks, includes, vec![])
+    }
+
+    fn __new_private(
+        secret: String,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
+        includes: Vec<String>,
+        excludes: Vec<String>,
+    ) -> Self {
         Self {
             secret,
             error_handler: Box::new(error_handler),
@@ -230,7 +262,30 @@ where
             } else {
                 None
             },
+            include: includes,
+            exclude: excludes,
         }
+    }
+}
+
+impl<T> RocketJWTAuthFairing<T>
+where T: Serialize + DeserializeOwned + Clone {
+    fn must_secure(&self, uri: &Origin) -> bool {
+        for include in &self.include {
+            if let Ok(pattern) = Pattern::from_str(include) {
+                if pattern.matches(uri.path()) {
+                    return true;
+                }
+            }
+        }
+        for exclude in &self.exclude {
+            if let Ok(pattern) = Pattern::from_str(exclude) {
+                if pattern.matches(uri.path()) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
 
@@ -246,6 +301,9 @@ where
     }
 
     fn on_request(&self, request: &mut Request, _: &Data) {
+        if !self.must_secure(request.uri()) {
+            return;
+        }
         if !request.headers().contains("Authorization") {
             let uri = (self.error_handler)(AuthError::MissingHeader);
             request.set_uri(Origin::parse_owned(uri).unwrap());

@@ -20,3 +20,4 @@ sha256 = "1.0.0"
 hmac-sha256 = "0.1.6"
 rocket = "0.4.10"
 rocket_contrib = { version = "0.4.7", features = ["json"] }
+glob = "0.3.0"
