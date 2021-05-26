@@ -269,7 +269,9 @@ where
 }
 
 impl<T> RocketJWTAuthFairing<T>
-where T: Serialize + DeserializeOwned + Clone {
+where
+    T: Serialize + DeserializeOwned + Clone,
+{
     fn must_secure(&self, uri: &Origin) -> bool {
         for include in &self.include {
             if let Ok(pattern) = Pattern::from_str(include) {
