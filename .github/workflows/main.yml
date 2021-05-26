@@ -15,7 +15,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2.3.4
-    - name: Fomat code to meed rust formatting standards
+    - name: Set toolchain to nightly
+      run: rustup default nightly
+    - name: Fomat code to meet rust formatting standards
       run: cargo fmt -- --check
     - name: Check common good practices
       run: cargo clippy --all-targets -- -D warnings
