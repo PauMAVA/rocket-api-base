@@ -15,13 +15,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2.3.4
+    
     - name: Set toolchain to nightly
       run: rustup default nightly
+      
+    - name: Install rustmft for nightly
+      run: rustup component add rustfmt
+      
+    - name: Install clippy for nightly
+      run: rustup component add clippy
+      
     - name: Fomat code to meet rust formatting standards
       run: cargo fmt -- --check
+      
     - name: Check common good practices
       run: cargo clippy --all-targets -- -D warnings
+      
     - name: Build
       run: cargo build
+      
     - name: Test
       run: cargo test
