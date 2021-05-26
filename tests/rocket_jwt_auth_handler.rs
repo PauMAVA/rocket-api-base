@@ -16,10 +16,10 @@ use std::fs::File;
 use std::io::Read;
 use std::time::SystemTime;
 
-const MISSING_HEADER_FILE: &'static str = "tests/jwt_auth_handler_missing_header.json";
-const INVALID_HEADER_FILE: &'static str = "tests/jwt_auth_handler_invalid_header.json";
-const TAMPERED_TOKEN_FILE: &'static str = "tests/jwt_auth_handler_tampered_token.json";
-const OK_FILE: &'static str = "tests/jwt_auth_handler_ok.json";
+const MISSING_HEADER_FILE: &str = "tests/jwt_auth_handler_missing_header.json";
+const INVALID_HEADER_FILE: &str = "tests/jwt_auth_handler_invalid_header.json";
+const TAMPERED_TOKEN_FILE: &str = "tests/jwt_auth_handler_tampered_token.json";
+const OK_FILE: &str = "tests/jwt_auth_handler_ok.json";
 
 fn file_to_value(file_name: &'static str) -> Value {
     let mut file = File::open(file_name).unwrap();

@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use std::fs::File;
 use std::io::Read;
 
-const SERIALIZE_FILE: &'static str = "tests/base_response_serialize.json";
-const SERIALIZE_NO_CONTENT_FILE: &'static str = "tests/base_response_serialize_no_content.json";
+const SERIALIZE_FILE: &str = "tests/base_response_serialize.json";
+const SERIALIZE_NO_CONTENT_FILE: &str = "tests/base_response_serialize_no_content.json";
 
 #[derive(Serialize)]
 struct Person {

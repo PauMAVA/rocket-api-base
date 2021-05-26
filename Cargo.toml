@@ -3,6 +3,11 @@ name = "rocket-api-base"
 version = "0.1.0"
 authors = ["PauMAVA <paumachetti@gmail.com>"]
 edition = "2018"
+description = "Base utilities for secure API construction with Rocket.rs"
+repository = "https://github.com/PauMAVA/rocket-api-base"
+readme = "README.md"
+license = "MIT"
+keywords = ["api", "rocket.rs", "jwt"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
