@@ -7,7 +7,7 @@ description = "Base utilities for secure API construction with Rocket.rs"
 repository = "https://github.com/PauMAVA/rocket-api-base"
 readme = "README.md"
 license = "MIT"
-keywords = ["api", "rocket.rs", "jwt"]
+keywords = ["api", "rocket", "jwt"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
