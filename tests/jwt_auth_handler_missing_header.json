@@ -1,0 +1,6 @@
+{
+  "result": "error",
+  "error_message": "The header Authorization is missing",
+  "error_code": 403,
+  "content": {}
+}

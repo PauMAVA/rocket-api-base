@@ -1,0 +1,6 @@
+{
+  "result": "error",
+  "error_message": "The format of the header data is not valid! Expected: 'Bearer <token>'",
+  "error_code": 403,
+  "content": {}
+}

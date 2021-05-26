@@ -1,0 +1,6 @@
+{
+  "result": "error",
+  "error_message": "Invalid JWT token! The token signature does not match and the integrity of the token cannot be verified",
+  "error_code": 403,
+  "content": {}
+}

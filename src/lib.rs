@@ -1,6 +1,9 @@
 use hmac_sha256::HMAC;
+use rand::distributions::Distribution;
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::uri::Origin;
+use rocket::http::uri::{Origin, Uri};
 use rocket::{Data, Request};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize, Serializer};
@@ -61,6 +64,20 @@ pub enum JWTError {
     CompromisedIntegrity,
 }
 
+impl JWTError {
+    pub fn get_message(&self) -> String {
+        match *self {
+            Self::MalformedToken => "Invalid JWT token format.".into(),
+            Self::MalformedEncoding => "Invalid base64 token encoding".into(),
+            Self::CompromisedIntegrity => "The token signature does not match and the integrity of the token cannot be verified".into(),
+        }
+    }
+
+    pub fn get_message_encoded(&self) -> String {
+        Uri::percent_encode(&self.get_message()).to_string()
+    }
+}
+
 fn deserialize_token_component<T>(part: &str) -> Result<T, JWTError>
 where
     T: DeserializeOwned,
@@ -89,7 +106,7 @@ where
         let header = deserialize_token_component::<JWTokenHeader>(parts.get(0).unwrap().as_str())?;
         let payload: T = deserialize_token_component::<T>(parts.get(1).unwrap().as_str())?;
         let good_signature = get_base64_signature(secret, &header, &payload);
-        let signature = parts.get(3).unwrap();
+        let signature = parts.get(2).unwrap();
         if good_signature.as_str() != signature.as_str() {
             return Err(JWTError::CompromisedIntegrity);
         }
@@ -108,6 +125,23 @@ where
             self.signature
         )
     }
+}
+
+struct AlphaNumericSymbols;
+
+impl Distribution<char> for AlphaNumericSymbols {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
+        *b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+            .choose(rng)
+            .unwrap() as char
+    }
+}
+
+pub fn new_secret(len: usize) -> String {
+    thread_rng()
+        .sample_iter(&AlphaNumericSymbols)
+        .take(len)
+        .collect()
 }
 
 pub fn issue_auth_token<T>(secret: String, payload: T) -> JWToken<T>
@@ -157,6 +191,26 @@ pub enum AuthError {
     MissingHeader,
     InvalidHeaderFormat,
     JWTError(JWTError),
+}
+
+impl AuthError {
+    pub fn get_message(&self) -> String {
+        match self {
+            &Self::MissingHeader => "The header Authorization is missing".to_string(),
+            &Self::InvalidHeaderFormat => {
+                "The format of the header data is not valid! Expected: 'Bearer <token>'".to_string()
+            }
+            Self::JWTError(err) => format!(
+                "{} {}",
+                "Invalid JWT token!".to_string(),
+                &err.get_message()
+            ),
+        }
+    }
+
+    pub fn get_message_encoded(&self) -> String {
+        Uri::percent_encode(&self.get_message()).to_string()
+    }
 }
 
 impl<T> RocketJWTAuthFairing<T>

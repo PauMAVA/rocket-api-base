@@ -10,6 +10,8 @@ edition = "2018"
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"
 base64 = "0.13.0"
+rand = "0.8.3"
 sha256 = "1.0.0"
 hmac-sha256 = "0.1.6"
 rocket = "0.4.10"
+rocket_contrib = { version = "0.4.7", features = ["json"] }
