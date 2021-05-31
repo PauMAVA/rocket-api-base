@@ -1,6 +1,6 @@
 [package]
 name = "rocket-api-base"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["PauMAVA <paumachetti@gmail.com>"]
 edition = "2018"
 description = "Base utilities for secure API construction with Rocket.rs"

@@ -233,7 +233,7 @@ where
         secret: String,
         error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
         further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
-        excludes: Vec<String>,
+        excludes: Vec<&str>,
     ) -> Self {
         Self::__new_private(secret, error_handler, further_checks, vec![], excludes)
     }
@@ -242,7 +242,7 @@ where
         secret: String,
         error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
         further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
-        includes: Vec<String>,
+        includes: Vec<&str>,
     ) -> Self {
         Self::__new_private(secret, error_handler, further_checks, includes, vec![])
     }
@@ -251,8 +251,8 @@ where
         secret: String,
         error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
         further_checks: Option<impl (Fn(JWToken<T>) -> Result<(), String>) + Send + Sync + 'static>,
-        includes: Vec<String>,
-        excludes: Vec<String>,
+        includes: Vec<&str>,
+        excludes: Vec<&str>,
     ) -> Self {
         Self {
             secret,
@@ -262,8 +262,8 @@ where
             } else {
                 None
             },
-            include: includes,
-            exclude: excludes,
+            include: includes.into_iter().map(|x| x.to_string()).collect(),
+            exclude: excludes.into_iter().map(|x| x.to_string()).collect(),
         }
     }
 }
@@ -275,8 +275,8 @@ where
     fn must_secure(&self, uri: &Origin) -> bool {
         for include in &self.include {
             if let Ok(pattern) = Pattern::from_str(include) {
-                if pattern.matches(uri.path()) {
-                    return true;
+                if !pattern.matches(uri.path()) {
+                    return false;
                 }
             }
         }

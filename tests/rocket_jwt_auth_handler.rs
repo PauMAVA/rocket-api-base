@@ -47,6 +47,26 @@ fn test_endpoint() -> Json<BaseResponse<NoContent>> {
     })
 }
 
+#[get("/test2")]
+fn test2_endpoint() -> Json<BaseResponse<NoContent>> {
+    Json(BaseResponse::<NoContent> {
+        result: "ok".to_string(),
+        error_message: "".to_string(),
+        error_code: 0,
+        content: BaseContent::None,
+    })
+}
+
+#[get("/other")]
+fn other_endpoint() -> Json<BaseResponse<NoContent>> {
+    Json(BaseResponse::<NoContent> {
+        result: "ok".to_string(),
+        error_message: "".to_string(),
+        error_code: 0,
+        content: BaseContent::None,
+    })
+}
+
 #[get("/auth_error?<message>")]
 fn auth_error_endpoint(message: &RawStr) -> Json<BaseResponse<NoContent>> {
     Json(BaseResponse::<NoContent> {
@@ -75,7 +95,61 @@ fn start_test_server() -> (String, Rocket) {
                 auth_error_handler,
                 Some(further_checks),
             ))
-            .mount("/", routes![test_endpoint, auth_error_endpoint]),
+            .mount(
+                "/",
+                routes![
+                    test_endpoint,
+                    test2_endpoint,
+                    other_endpoint,
+                    auth_error_endpoint
+                ],
+            ),
+    )
+}
+
+fn start_test_server_with_excludes(excludes: Vec<&str>) -> (String, Rocket) {
+    let secret = new_secret(32);
+    (
+        secret.clone(),
+        rocket::ignite()
+            .attach(RocketJWTAuthFairing::<CustomJWTPayload>::new_with_excludes(
+                secret,
+                auth_error_handler,
+                Some(further_checks),
+                excludes,
+            ))
+            .mount(
+                "/",
+                routes![
+                    test_endpoint,
+                    test2_endpoint,
+                    other_endpoint,
+                    auth_error_endpoint
+                ],
+            ),
+    )
+}
+
+fn start_test_server_with_includes(includes: Vec<&str>) -> (String, Rocket) {
+    let secret = new_secret(32);
+    (
+        secret.clone(),
+        rocket::ignite()
+            .attach(RocketJWTAuthFairing::<CustomJWTPayload>::new_with_includes(
+                secret,
+                auth_error_handler,
+                Some(further_checks),
+                includes,
+            ))
+            .mount(
+                "/",
+                routes![
+                    test_endpoint,
+                    test2_endpoint,
+                    other_endpoint,
+                    auth_error_endpoint
+                ],
+            ),
     )
 }
 
@@ -142,6 +216,75 @@ fn test_ok() {
         "Authorization",
         format!("Bearer {}", token.encode()),
     ));
+    let response = req.dispatch();
+    assert_eq!(file_to_value(OK_FILE), response_to_value(response));
+}
+
+#[test]
+fn test_excluded() {
+    let (_, rocket) = start_test_server_with_excludes(vec!["/test"]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+    let req = client.get("/test");
+    let response = req.dispatch();
+    assert_eq!(file_to_value(OK_FILE), response_to_value(response));
+    let req = client.get("/test2");
+    let response = req.dispatch();
+    assert_eq!(
+        file_to_value(MISSING_HEADER_FILE),
+        response_to_value(response)
+    );
+}
+
+#[test]
+fn test_included() {
+    let (_, rocket) = start_test_server_with_includes(vec!["/test"]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+    let req = client.get("/test2");
+    let response = req.dispatch();
+    assert_eq!(file_to_value(OK_FILE), response_to_value(response));
+    let req = client.get("/test");
+    let response = req.dispatch();
+    assert_eq!(
+        file_to_value(MISSING_HEADER_FILE),
+        response_to_value(response)
+    );
+}
+
+#[test]
+fn test_excluded_glob() {
+    let (_, rocket) = start_test_server_with_excludes(vec!["/test*"]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+    let req = client.get("/test");
+    let response = req.dispatch();
+    assert_eq!(file_to_value(OK_FILE), response_to_value(response));
+    let req = client.get("/test2");
+    let response = req.dispatch();
+    assert_eq!(file_to_value(OK_FILE), response_to_value(response));
+    let req = client.get("/other");
+    let response = req.dispatch();
+    assert_eq!(
+        file_to_value(MISSING_HEADER_FILE),
+        response_to_value(response)
+    );
+}
+
+#[test]
+fn test_included_glob() {
+    let (_, rocket) = start_test_server_with_includes(vec!["/test*"]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+    let req = client.get("/test");
+    let response = req.dispatch();
+    assert_eq!(
+        file_to_value(MISSING_HEADER_FILE),
+        response_to_value(response)
+    );
+    let req = client.get("/test2");
+    let response = req.dispatch();
+    assert_eq!(
+        file_to_value(MISSING_HEADER_FILE),
+        response_to_value(response)
+    );
+    let req = client.get("/other");
     let response = req.dispatch();
     assert_eq!(file_to_value(OK_FILE), response_to_value(response));
 }
