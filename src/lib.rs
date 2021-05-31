@@ -195,6 +195,7 @@ pub enum AuthError {
     MissingHeader,
     InvalidHeaderFormat,
     JWTError(JWTError),
+    BasicError(BasicError),
 }
 
 impl AuthError {
@@ -207,6 +208,11 @@ impl AuthError {
             Self::JWTError(err) => format!(
                 "{} {}",
                 "Invalid JWT token!".to_string(),
+                &err.get_message()
+            ),
+            Self::BasicError(err) => format!(
+                "{} {}",
+                "Invalid Basic auth!".to_string(),
                 &err.get_message()
             ),
         }
@@ -329,6 +335,139 @@ where
             }
             Err(err) => {
                 let uri = (self.error_handler)(AuthError::JWTError(err));
+                request.set_uri(Origin::parse_owned(uri).unwrap());
+            }
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BasicError {
+    MalformedEncoding,
+    MalformedFormat,
+}
+
+impl BasicError {
+    pub fn get_message(&self) -> String {
+        match *self {
+            Self::MalformedFormat => "Invalid authentication format. Expected user:password".into(),
+            Self::MalformedEncoding => "Invalid base64 token encoding".into(),
+        }
+    }
+
+    pub fn get_message_encoded(&self) -> String {
+        Uri::percent_encode(&self.get_message()).to_string()
+    }
+}
+
+pub type BasicAuthCallback = dyn Fn(String, String) -> Result<(), String> + Send + Sync;
+
+pub struct RocketBasicAuthFairing {
+    callback: Box<BasicAuthCallback>,
+    error_handler: Box<ErrorHandlerCallback>,
+    includes: Vec<String>,
+    excludes: Vec<String>,
+}
+
+impl RocketBasicAuthFairing {
+    pub fn new(
+        callback: impl Fn(String, String) -> Result<(), String> + Send + Sync + 'static,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+    ) -> Self {
+        Self::__new_private(callback, error_handler, vec![], vec![])
+    }
+
+    pub fn new_with_includes(
+        callback: impl Fn(String, String) -> Result<(), String> + Send + Sync + 'static,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        includes: Vec<&str>,
+    ) -> Self {
+        Self::__new_private(callback, error_handler, includes, vec![])
+    }
+
+    pub fn new_with_excludes(
+        callback: impl Fn(String, String) -> Result<(), String> + Send + Sync + 'static,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        excludes: Vec<&str>,
+    ) -> Self {
+        Self::__new_private(callback, error_handler, vec![], excludes)
+    }
+
+    fn __new_private(
+        callback: impl Fn(String, String) -> Result<(), String> + Send + Sync + 'static,
+        error_handler: impl (Fn(AuthError) -> String) + Send + Sync + 'static,
+        includes: Vec<&str>,
+        excludes: Vec<&str>,
+    ) -> Self {
+        Self {
+            callback: Box::new(callback),
+            error_handler: Box::new(error_handler),
+            includes: includes.into_iter().map(|x| x.to_string()).collect(),
+            excludes: excludes.into_iter().map(|x| x.to_string()).collect(),
+        }
+    }
+
+    fn must_secure(&self, uri: &Origin) -> bool {
+        for include in &self.includes {
+            if let Ok(pattern) = Pattern::from_str(include) {
+                if !pattern.matches(uri.path()) {
+                    return false;
+                }
+            }
+        }
+        for exclude in &self.excludes {
+            if let Ok(pattern) = Pattern::from_str(exclude) {
+                if pattern.matches(uri.path()) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+impl Fairing for RocketBasicAuthFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Basic authentication guard",
+            kind: Kind::Request,
+        }
+    }
+
+    fn on_request(&self, request: &mut Request, _: &Data) {
+        if !self.must_secure(request.uri()) {
+            return;
+        }
+        if !request.headers().contains("Authorization") {
+            let uri = (self.error_handler)(AuthError::MissingHeader);
+            request.set_uri(Origin::parse_owned(uri).unwrap());
+            return;
+        }
+        let header_content = request.headers().get_one("Authorization").unwrap();
+        if !header_content.starts_with("Basic ") {
+            let uri = (self.error_handler)(AuthError::InvalidHeaderFormat);
+            request.set_uri(Origin::parse_owned(uri).unwrap());
+            return;
+        }
+        let auth_details = match base64::decode(header_content.replace("Basic ", "")) {
+            Ok(val) => String::from_utf8(val).unwrap_or_else(|_| "".to_string()),
+            Err(_) => {
+                let uri =
+                    (self.error_handler)(AuthError::BasicError(BasicError::MalformedEncoding));
+                request.set_uri(Origin::parse_owned(uri).unwrap());
+                return;
+            }
+        };
+        let split: Vec<&str> = auth_details.split(':').collect();
+        if split.len() != 2 {
+            let uri = (self.error_handler)(AuthError::BasicError(BasicError::MalformedFormat));
+            request.set_uri(Origin::parse_owned(uri).unwrap());
+            return;
+        }
+        match (self.callback)(split[0].to_string(), split[1].to_string()) {
+            Ok(_) => {}
+            Err(uri) => {
                 request.set_uri(Origin::parse_owned(uri).unwrap());
             }
         }

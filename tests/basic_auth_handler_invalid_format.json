@@ -1,0 +1,6 @@
+{
+  "result": "error",
+  "error_message": "Invalid Basic auth! Invalid authentication format. Expected user:password",
+  "error_code": 403,
+  "content": {}
+}
